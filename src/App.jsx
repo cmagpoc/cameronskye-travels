@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { jsPDF } from "jspdf";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
 const theme = {
@@ -453,19 +454,15 @@ function PlannerPage() {
   const [form, setForm] = useState({ destination: "", duration: "", style: "", budget: "" });
   const [step, setStep] = useState("form");
   const [loading, setLoading] = useState(false);
-  const [streamedText, setStreamedText] = useState("");
-  const resultRef = useRef(null);
+  const [itineraryText, setItineraryText] = useState("");
+  const [itineraryTitle, setItineraryTitle] = useState("");
 
   const allSelected = form.destination && form.duration && form.style && form.budget;
-
-  useEffect(() => {
-    if (streamedText && resultRef.current) resultRef.current.scrollTop = resultRef.current.scrollHeight;
-  }, [streamedText]);
 
   async function generate() {
     setLoading(true);
     setStep("result");
-    setStreamedText("");
+    setItineraryText("");
 
     const prompt = `You are Skye, a European travel expert and 9-5 dad who travels smart. Create a detailed, inspiring travel itinerary.
 
@@ -475,13 +472,9 @@ Travel style: ${form.style}
 Budget: ${form.budget}
 
 Format your response with:
-1. A catchy title for this trip
-2. Day-by-day itinerary with morning/afternoon/evening
-3. 3 must-eat food recommendations
-4. 2 best photography spots
-5. 1 insider tip most tourists miss
-6. Estimated daily budget breakdown
-7. Best PTO window to book this trip
+TITLE: [catchy trip title here]
+
+Then a full day-by-day itinerary with morning/afternoon/evening activities, 3 must-eat food recommendations, 2 best photography spots, 1 insider tip most tourists miss, estimated daily budget breakdown, and best PTO window to book this trip.
 
 Write like a friend who has actually been there. Inspiring but practical.`;
 
@@ -493,20 +486,109 @@ Write like a friend who has actually been there. Inspiring but practical.`;
       });
       const data = await res.json();
       if (data.error) {
-        setStreamedText("Error: " + data.error);
+        setItineraryText("Error: " + data.error);
         setLoading(false);
         return;
       }
       const text = data.content?.map(b => b.text || "").join("") || "No response received. Please try again.";
-      let i = 0;
-      const iv = setInterval(() => {
-        if (i < text.length) { setStreamedText(p => p + text[i]); i++; }
-        else { clearInterval(iv); setLoading(false); }
-      }, 8);
+      // Extract title if present
+      const titleMatch = text.match(/TITLE:\s*(.+)/);
+      if (titleMatch) {
+        setItineraryTitle(titleMatch[1].trim());
+        setItineraryText(text.replace(/TITLE:\s*.+
+?/, "").trim());
+      } else {
+        setItineraryTitle(`${form.destination} — ${form.duration}`);
+        setItineraryText(text);
+      }
+      setLoading(false);
     } catch (err) {
-      setStreamedText("Error: " + (err.message || "Something went wrong. Please try again."));
+      setItineraryText("Error: " + (err.message || "Something went wrong. Please try again."));
       setLoading(false);
     }
+  }
+
+  function downloadPDF() {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxW = pageW - margin * 2;
+
+    // Header background
+    doc.setFillColor(26, 58, 42);
+    doc.rect(0, 0, pageW, 45, "F");
+
+    // Gold accent line
+    doc.setFillColor(201, 169, 110);
+    doc.rect(0, 45, pageW, 2, "F");
+
+    // Header text
+    doc.setTextColor(254, 250, 224);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text(itineraryTitle || "My Europe Itinerary", margin, 22);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(183, 228, 199);
+    doc.text(`${form.destination} · ${form.duration} · ${form.style} · ${form.budget}`, margin, 33);
+    doc.text("cameronskyetravels.com · @_skyetravels", margin, 40);
+
+    // Body text
+    doc.setTextColor(28, 43, 32);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+
+    let y = 58;
+    const lines = doc.splitTextToSize(itineraryText, maxW);
+
+    lines.forEach(line => {
+      if (y > pageH - 30) {
+        doc.addPage();
+        // Subtle header on subsequent pages
+        doc.setFillColor(26, 58, 42);
+        doc.rect(0, 0, pageW, 12, "F");
+        doc.setTextColor(183, 228, 199);
+        doc.setFontSize(8);
+        doc.text("cameronskyetravels.com — Your Personal Europe Itinerary", margin, 8);
+        doc.setTextColor(28, 43, 32);
+        doc.setFontSize(11);
+        y = 22;
+      }
+
+      // Bold day headers
+      if (line.match(/^Day \d+/i) || line.match(/^DAY \d+/i)) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(45, 106, 79);
+        doc.setFontSize(12);
+        y += 4;
+      } else if (line.match(/^(Morning|Afternoon|Evening|🍽|📸|💡|💰|✈️)/)) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(28, 43, 32);
+        doc.setFontSize(11);
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 80, 65);
+        doc.setFontSize(10.5);
+      }
+
+      doc.text(line, margin, y);
+      y += line === "" ? 4 : 6;
+    });
+
+    // Footer on last page
+    doc.setFillColor(26, 58, 42);
+    doc.rect(0, pageH - 18, pageW, 18, "F");
+    doc.setFillColor(201, 169, 110);
+    doc.rect(0, pageH - 18, pageW, 1.5, "F");
+    doc.setTextColor(254, 250, 224);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Generated by cameronskyetravels.com · Free AI Trip Planner · @_skyetravels", margin, pageH - 9);
+    doc.text("Book via links at cameronskyetravels.com — some links are affiliate links", margin, pageH - 4);
+
+    const filename = `${form.destination.toLowerCase().replace(/\s+/g, "-")}-${form.duration.replace(/\s+/g, "")}-itinerary.pdf`;
+    doc.save(filename);
   }
 
   return (
@@ -550,27 +632,99 @@ Write like a friend who has actually been there. Inspiring but practical.`;
         {step === "result" && (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32 }}>
-              <button onClick={() => { setStep("form"); setStreamedText(""); setForm({ destination: "", duration: "", style: "", budget: "" }); }}
+              <button onClick={() => { setStep("form"); setItineraryText(""); setForm({ destination: "", duration: "", style: "", budget: "" }); }}
                 style={{ background: "white", border: "1px solid #b7e4c7", borderRadius: 50, padding: "8px 16px", cursor: "pointer", color: theme.green, fontWeight: 500, fontSize: 14 }}>← Back</button>
               <div style={{ fontSize: 14, color: theme.muted }}>
                 {form.destination} · {form.duration} · {form.style}
               </div>
             </div>
 
-            <div ref={resultRef} style={{
-              background: "white", borderRadius: 24, padding: "32px 28px",
-              boxShadow: "0 8px 40px rgba(26,58,42,0.1)",
-              border: "1px solid #e8f5ee",
-              lineHeight: 1.8, fontSize: 15.5, color: theme.text,
-              whiteSpace: "pre-wrap", minHeight: 300, maxHeight: "65vh", overflowY: "auto",
-              marginBottom: 28,
-            }}>
-              {streamedText}
-              {loading && <span style={{ animation: "pulse 1s infinite", color: theme.green }}>▌</span>}
-            </div>
+            {loading && (
+              <div style={{ textAlign: "center", padding: "80px 0", overflow: "hidden" }}>
+                {/* Sky background */}
+                <div style={{
+                  position: "relative", background: "linear-gradient(180deg, #bde0fe 0%, #e8f5ee 100%)",
+                  borderRadius: 24, padding: "48px 32px", marginBottom: 28,
+                  overflow: "hidden", minHeight: 180,
+                }}>
+                  {/* Clouds */}
+                  <div style={{ position: "absolute", top: 24, left: "-10%", animation: "cloudMove 8s linear infinite", opacity: 0.9 }}>
+                    <div style={{ background: "white", borderRadius: 50, width: 80, height: 28, boxShadow: "20px -8px 0 10px white, -20px -4px 0 8px white" }} />
+                  </div>
+                  <div style={{ position: "absolute", top: 50, left: "-5%", animation: "cloudMove 12s linear infinite 2s", opacity: 0.7 }}>
+                    <div style={{ background: "white", borderRadius: 50, width: 55, height: 20, boxShadow: "14px -6px 0 7px white, -14px -3px 0 6px white" }} />
+                  </div>
+                  <div style={{ position: "absolute", top: 18, right: "-5%", animation: "cloudMoveReverse 10s linear infinite 1s", opacity: 0.8 }}>
+                    <div style={{ background: "white", borderRadius: 50, width: 65, height: 22, boxShadow: "16px -7px 0 8px white, -16px -3px 0 7px white" }} />
+                  </div>
+                  <div style={{ position: "absolute", bottom: 30, left: "5%", animation: "cloudMove 15s linear infinite 4s", opacity: 0.6 }}>
+                    <div style={{ background: "white", borderRadius: 50, width: 45, height: 16, boxShadow: "10px -5px 0 5px white, -10px -2px 0 5px white" }} />
+                  </div>
 
-            {!loading && streamedText && (
+                  {/* Airplane */}
+                  <div style={{ animation: "flyAcross 3s ease-in-out infinite", display: "inline-block" }}>
+                    <span style={{ fontSize: 52, filter: "drop-shadow(2px 4px 6px rgba(0,0,0,0.15))" }}>✈️</span>
+                  </div>
+
+                  {/* Dotted flight path */}
+                  <div style={{ position: "absolute", bottom: 55, left: "10%", right: "10%", borderTop: "2px dashed rgba(45,106,79,0.3)", borderRadius: "0 0 50% 50%" }} />
+                </div>
+
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: theme.forest, marginBottom: 8 }}>
+                  Planning your adventure...
+                </div>
+                <div style={{ color: theme.muted, fontSize: 15 }}>Building your perfect itinerary. Takes 5–10 seconds.</div>
+
+                <style>{`
+                  @keyframes flyAcross {
+                    0% { transform: translateX(-60px) translateY(8px) rotate(-5deg); }
+                    25% { transform: translateX(0px) translateY(-12px) rotate(3deg); }
+                    50% { transform: translateX(60px) translateY(4px) rotate(-2deg); }
+                    75% { transform: translateX(20px) translateY(-8px) rotate(4deg); }
+                    100% { transform: translateX(-60px) translateY(8px) rotate(-5deg); }
+                  }
+                  @keyframes cloudMove {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(120vw); }
+                  }
+                  @keyframes cloudMoveReverse {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-120vw); }
+                  }
+                `}</style>
+              </div>
+            )}
+
+            {!loading && itineraryText && (
               <>
+                {itineraryTitle && (
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: theme.forest, marginBottom: 20, lineHeight: 1.3 }}>{itineraryTitle}</h2>
+                )}
+                <div style={{
+                  background: "white", borderRadius: 24, padding: "32px 28px",
+                  boxShadow: "0 8px 40px rgba(26,58,42,0.1)",
+                  border: "1px solid #e8f5ee",
+                  lineHeight: 1.85, fontSize: 15, color: theme.text,
+                  whiteSpace: "pre-wrap", marginBottom: 24,
+                }}>
+                  {itineraryText}
+                </div>
+
+                {/* Download PDF button */}
+                <button onClick={downloadPDF} style={{
+                  width: "100%", padding: "18px", marginBottom: 12, borderRadius: 16,
+                  background: "linear-gradient(135deg, #1a3a2a, #2d6a4f)",
+                  color: "white", border: "none", fontSize: 16, fontWeight: 600,
+                  fontFamily: "'DM Sans', sans-serif", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                  transition: "all 0.25s ease", boxShadow: "0 4px 20px rgba(26,58,42,0.25)",
+                }}
+                  onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
+                  onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+                >
+                  📥 Download Your Free PDF Itinerary
+                </button>
+
                 <div style={{ marginBottom: 24 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: theme.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Book your trip</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -594,8 +748,9 @@ Write like a friend who has actually been there. Inspiring but practical.`;
                     ))}
                   </div>
                 </div>
+
                 <button className="btn-primary" style={{ width: "100%", padding: 18, fontSize: 16, borderRadius: 16 }}
-                  onClick={() => { setStep("form"); setStreamedText(""); setForm({ destination: "", duration: "", style: "", budget: "" }); }}>
+                  onClick={() => { setStep("form"); setItineraryText(""); setForm({ destination: "", duration: "", style: "", budget: "" }); }}>
                   Plan Another Trip ✨
                 </button>
               </>
