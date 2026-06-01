@@ -495,8 +495,7 @@ Write like a friend who has actually been there. Inspiring but practical.`;
       const titleMatch = text.match(/TITLE:\s*(.+)/);
       if (titleMatch) {
         setItineraryTitle(titleMatch[1].trim());
-        setItineraryText(text.replace(/TITLE:\s*.+
-?/, "").trim());
+        setItineraryText(text.replace(/TITLE:[^\n]*\n?/, "").trim());
       } else {
         setItineraryTitle(`${form.destination} — ${form.duration}`);
         setItineraryText(text);
