@@ -1,45 +1,473 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-const DESTINATIONS = ["Switzerland", "Italy", "France", "Germany", "All of Europe"];
-const DURATIONS = ["3 days", "5 days", "7 days", "10 days", "2 weeks"];
+// ─── THEME ───────────────────────────────────────────────────────────────────
+const theme = {
+  forest: "#1a3a2a",
+  green: "#2d6a4f",
+  mid: "#40916c",
+  light: "#74c69d",
+  pale: "#b7e4c7",
+  cream: "#fefae0",
+  sand: "#fdf3dc",
+  warm: "#f5e6c8",
+  text: "#1c2b20",
+  muted: "#5a7a65",
+  white: "#ffffff",
+};
+
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'DM Sans', sans-serif; background: #fefae0; color: #1c2b20; }
+  a { text-decoration: none; color: inherit; }
+  
+  .fade-in { animation: fadeUp 0.7s ease both; }
+  .fade-in-2 { animation: fadeUp 0.7s 0.15s ease both; }
+  .fade-in-3 { animation: fadeUp 0.7s 0.3s ease both; }
+  .fade-in-4 { animation: fadeUp 0.7s 0.45s ease both; }
+  
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .card-hover {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+  }
+  .card-hover:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 60px rgba(26,58,42,0.15) !important;
+  }
+
+  .btn-primary {
+    background: #2d6a4f;
+    color: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary:hover {
+    background: #1a3a2a;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(45,106,79,0.35);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: #2d6a4f;
+    border: 2px solid #2d6a4f;
+    padding: 14px 30px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  .btn-outline:hover {
+    background: #2d6a4f;
+    color: white;
+    transform: translateY(-2px);
+  }
+
+  .chip-select {
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: 2px solid #b7e4c7;
+    background: white;
+    color: #2d6a4f;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .chip-select:hover { border-color: #2d6a4f; background: #f0faf4; }
+  .chip-select.active { background: #2d6a4f; color: white; border-color: #2d6a4f; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #fefae0; }
+  ::-webkit-scrollbar-thumb { background: #74c69d; border-radius: 3px; }
+
+  .nav-link {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1c2b20;
+    padding: 8px 16px;
+    border-radius: 50px;
+    transition: all 0.2s ease;
+  }
+  .nav-link:hover { background: #f0faf4; color: #2d6a4f; }
+
+  .section-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #e8f5ee;
+    color: #2d6a4f;
+    padding: 6px 16px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .destination-card {
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 3/4;
+    cursor: pointer;
+  }
+
+  .planner-chip {
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: 2px solid #b7e4c7;
+    background: white;
+    color: #2d6a4f;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .planner-chip:hover { border-color: #2d6a4f; }
+  .planner-chip.selected { background: #2d6a4f; color: white; border-color: #2d6a4f; }
+`;
+
+// ─── DESTINATIONS DATA ────────────────────────────────────────────────────────
+const destinations = [
+  { name: "Switzerland", emoji: "🇨🇭", tag: "Alpine magic", color: "#1a3a2a", light: "#b7e4c7", desc: "Oeschinensee · Saxer Lücke · Bernina Express" },
+  { name: "Italy", emoji: "🇮🇹", tag: "La dolce vita", color: "#5c2a0a", light: "#f5c9a0", desc: "Rome · Venice · Amalfi · Dolomites" },
+  { name: "France", emoji: "🇫🇷", tag: "Timeless beauty", color: "#1a2a5c", light: "#a0b4f5", desc: "Paris · Provence · French Riviera" },
+  { name: "Germany", emoji: "🇩🇪", tag: "Hidden gems", color: "#2a1a3a", light: "#c9a0f5", desc: "Black Forest · Eibsee · Christmas Markets" },
+];
+
+const guides = [
+  { title: "Switzerland Travel Guide", emoji: "🇨🇭", desc: "Lakes, hikes, trains & hidden gems", trigger: "SWISS", color: "#e8f5ee" },
+  { title: "Eibsee Day Trip Guide", emoji: "🪞", desc: "Bavaria's secret mirror lake", trigger: "EIBSEE", color: "#e8f0f5" },
+  { title: "PTO Europe Playbook", emoji: "✈️", desc: "Turn 10 PTO days into 20+ in Europe", trigger: "PTO", color: "#fef5e8" },
+];
+
+// ─── PLANNER CONSTANTS ────────────────────────────────────────────────────────
+const DESTS = ["Switzerland", "Italy", "France", "Germany", "All of Europe"];
+const DURS = ["3 days", "5 days", "7 days", "10 days", "2 weeks"];
 const STYLES = ["Cinematic & aesthetic", "Food & culture", "Adventure & hiking", "Budget travel", "Luxury"];
 const BUDGETS = ["Budget (< $100/day)", "Mid-range ($100–200/day)", "Luxury ($200+/day)"];
 
-const AFFILIATE_LINKS = {
-  booking: "https://www.booking.com",
-  getyourguide: "https://www.getyourguide.com",
-  viator: "https://www.viator.com",
-};
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function Nav({ page, setPage }) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const handler = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handler);
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
 
-const gradientText = {
-  background: "linear-gradient(135deg, #c9a96e, #f0d9a0, #c9a96e)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent",
-  backgroundClip: "text",
-};
+  return (
+    <nav style={{
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+      background: scrolled ? "rgba(254,250,224,0.95)" : "transparent",
+      backdropFilter: scrolled ? "blur(12px)" : "none",
+      borderBottom: scrolled ? "1px solid rgba(180,220,195,0.4)" : "none",
+      transition: "all 0.3s ease",
+      padding: "0 24px",
+    }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68 }}>
+        <button onClick={() => setPage("home")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 26 }}>🌍</span>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: theme.forest }}>Cameron Skye</span>
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button className="nav-link" onClick={() => setPage("home")} style={{ background: "none", border: "none" }}>Home</button>
+          <button className="nav-link" onClick={() => setPage("planner")} style={{ background: "none", border: "none" }}>Trip Planner</button>
+          <a href="https://linktr.ee/Cameronskye_" target="_blank" rel="noopener noreferrer" className="nav-link">Guides</a>
+          <button className="btn-primary" style={{ marginLeft: 8, padding: "10px 22px", fontSize: 14 }} onClick={() => setPage("planner")}>Plan My Trip ✨</button>
+        </div>
+      </div>
+    </nav>
+  );
+}
 
-export default function App() {
-  const [step, setStep] = useState("home");
+// ─── HOMEPAGE ─────────────────────────────────────────────────────────────────
+function HomePage({ setPage }) {
+  return (
+    <div>
+      {/* HERO */}
+      <section style={{
+        minHeight: "100vh",
+        background: `linear-gradient(160deg, #e8f5ee 0%, #fefae0 50%, #fdf3dc 100%)`,
+        display: "flex", alignItems: "center",
+        padding: "100px 24px 60px",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* Background blobs */}
+        <div style={{ position: "absolute", top: "10%", right: "5%", width: 400, height: 400, borderRadius: "60% 40% 70% 30%", background: "rgba(116,198,157,0.15)", filter: "blur(40px)", animation: "float 6s ease-in-out infinite" }} />
+        <div style={{ position: "absolute", bottom: "15%", left: "2%", width: 300, height: 300, borderRadius: "40% 60% 30% 70%", background: "rgba(45,106,79,0.08)", filter: "blur(30px)" }} />
+
+        <div style={{ maxWidth: 1100, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}>
+          <div>
+            <div className="section-tag fade-in">🌿 9-5 Dad · World Traveller</div>
+            <h1 className="fade-in-2" style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(44px, 5vw, 68px)", fontWeight: 900, lineHeight: 1.05, color: theme.forest, margin: "8px 0 24px" }}>
+              See Europe on<br />
+              <em style={{ color: theme.green }}>your terms.</em>
+            </h1>
+            <p className="fade-in-3" style={{ fontSize: 18, color: theme.muted, lineHeight: 1.7, marginBottom: 36, maxWidth: 460 }}>
+              A 9-5 dad using every PTO day to explore the world. Real destinations, honest guides, and a free AI trip planner built for people with limited time off.
+            </p>
+            <div className="fade-in-4" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button className="btn-primary" onClick={() => setPage("planner")}>Plan My Trip ✨</button>
+              <a href="https://linktr.ee/Cameronskye_" target="_blank" rel="noopener noreferrer"><button className="btn-outline">Free Guides →</button></a>
+            </div>
+            <div style={{ marginTop: 40, display: "flex", gap: 32 }}>
+              {[["🌍", "4", "Countries"], ["📸", "50+", "Locations"], ["✈️", "Free", "Trip Planner"]].map(([emoji, num, label]) => (
+                <div key={label}>
+                  <div style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: theme.forest }}>{emoji} {num}</div>
+                  <div style={{ fontSize: 13, color: theme.muted, marginTop: 2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Hero card */}
+          <div style={{ position: "relative" }}>
+            <div style={{
+              background: "white",
+              borderRadius: 28,
+              padding: 8,
+              boxShadow: "0 30px 80px rgba(26,58,42,0.15)",
+              transform: "rotate(2deg)",
+              animation: "float 7s ease-in-out infinite",
+            }}>
+              <div style={{
+                background: `linear-gradient(135deg, #1a3a2a, #2d6a4f, #40916c)`,
+                borderRadius: 22,
+                padding: "40px 32px",
+                color: "white",
+                minHeight: 340,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}>
+                <div>
+                  <div style={{ fontSize: 13, opacity: 0.7, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>Latest Adventure</div>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, lineHeight: 1.2, marginBottom: 8 }}>Oeschinensee,<br />Switzerland 🇨🇭</div>
+                  <div style={{ opacity: 0.75, fontSize: 15, lineHeight: 1.6 }}>Snow-capped cliffs, turquoise reflections, and almost no tourists. This is Switzerland at its most raw.</div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20 }}>
+                  {["3 PTO days used", "November 2024", "🏔 Alpine"].map(t => (
+                    <span key={t} style={{ background: "rgba(255,255,255,0.15)", padding: "5px 12px", borderRadius: 50, fontSize: 12 }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{
+              position: "absolute", bottom: -16, right: -16, background: theme.cream,
+              borderRadius: 16, padding: "14px 20px",
+              boxShadow: "0 8px 30px rgba(26,58,42,0.12)",
+              border: "1px solid #b7e4c7",
+            }}>
+              <div style={{ fontSize: 12, color: theme.muted }}>Next up</div>
+              <div style={{ fontWeight: 600, color: theme.forest, fontSize: 15 }}>🇮🇹 Dolomites</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* DESTINATIONS */}
+      <section style={{ padding: "100px 24px", background: "white" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <div className="section-tag">🗺️ Destinations</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, color: theme.forest, marginTop: 8 }}>Where I've been</h2>
+            <p style={{ color: theme.muted, fontSize: 17, marginTop: 12, maxWidth: 480, margin: "12px auto 0" }}>Every destination explored on regular PTO days, stacked smart.</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
+            {destinations.map(dest => (
+              <div key={dest.name} className="card-hover destination-card" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }} onClick={() => setPage("planner")}>
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: `linear-gradient(160deg, ${dest.color}ee, ${dest.color}99)`,
+                  display: "flex", flexDirection: "column", justifyContent: "space-between",
+                  padding: 24,
+                }}>
+                  <div>
+                    <span style={{ fontSize: 42 }}>{dest.emoji}</span>
+                    <div style={{ display: "inline-block", background: "rgba(255,255,255,0.2)", padding: "4px 12px", borderRadius: 50, fontSize: 11, color: "white", marginTop: 12, fontWeight: 500 }}>{dest.tag}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: "white", marginBottom: 6 }}>{dest.name}</div>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.5 }}>{dest.desc}</div>
+                    <div style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.15)", padding: "8px 16px", borderRadius: 50, color: "white", fontSize: 13, fontWeight: 500 }}>
+                      Plan a trip →
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* AI PLANNER CTA */}
+      <section style={{
+        padding: "100px 24px",
+        background: `linear-gradient(135deg, #1a3a2a, #2d6a4f)`,
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", top: "-30%", right: "-10%", width: 500, height: 500, borderRadius: "50%", background: "rgba(116,198,157,0.08)", filter: "blur(60px)" }} />
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center", position: "relative" }}>
+          <div style={{ fontSize: 56, marginBottom: 16, animation: "float 5s ease-in-out infinite" }}>🗺️</div>
+          <div className="section-tag" style={{ background: "rgba(183,228,199,0.2)", color: "#b7e4c7" }}>Free Tool</div>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 700, color: "white", margin: "12px 0 20px", lineHeight: 1.15 }}>
+            Your free AI<br />trip planner
+          </h2>
+          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 18, lineHeight: 1.7, marginBottom: 40, maxWidth: 500, margin: "0 auto 40px" }}>
+            Tell me your destination, how long you have, and your style — I'll build you a complete day-by-day itinerary in seconds.
+          </p>
+          <button className="btn-primary" style={{ background: theme.cream, color: theme.forest, fontSize: 17, padding: "18px 40px" }} onClick={() => setPage("planner")}>
+            Plan My Europe Trip ✨
+          </button>
+          <div style={{ marginTop: 24, display: "flex", justifyContent: "center", gap: 24, color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
+            <span>✓ Completely free</span>
+            <span>✓ No sign up needed</span>
+            <span>✓ Instant results</span>
+          </div>
+        </div>
+      </section>
+
+      {/* FREE GUIDES */}
+      <section style={{ padding: "100px 24px", background: theme.sand }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <div className="section-tag">📚 Free Resources</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, color: theme.forest, marginTop: 8 }}>Free travel guides</h2>
+            <p style={{ color: theme.muted, fontSize: 17, marginTop: 12 }}>Comment the keyword on Instagram and I'll DM you the guide instantly.</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+            {guides.map(guide => (
+              <div key={guide.title} className="card-hover" style={{
+                background: "white", borderRadius: 20, padding: 32,
+                boxShadow: "0 4px 20px rgba(26,58,42,0.07)",
+                border: "1px solid #e8f5ee",
+              }}>
+                <div style={{ fontSize: 44, marginBottom: 16 }}>{guide.emoji}</div>
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: theme.forest, marginBottom: 8 }}>{guide.title}</h3>
+                <p style={{ color: theme.muted, fontSize: 15, lineHeight: 1.6, marginBottom: 24 }}>{guide.desc}</p>
+                <div style={{ background: guide.color, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: theme.forest, fontWeight: 500 }}>Comment on Instagram:</span>
+                  <span style={{ background: theme.green, color: "white", padding: "4px 14px", borderRadius: 50, fontSize: 13, fontWeight: 700 }}>{guide.trigger}</span>
+                </div>
+                <a href="https://linktr.ee/Cameronskye_" target="_blank" rel="noopener noreferrer">
+                  <button className="btn-outline" style={{ width: "100%", marginTop: 16 }}>Download Free →</button>
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ABOUT */}
+      <section style={{ padding: "100px 24px", background: "white" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+          <div>
+            <div style={{
+              background: `linear-gradient(135deg, #e8f5ee, #b7e4c7)`,
+              borderRadius: 28, padding: 40,
+              boxShadow: "0 20px 60px rgba(45,106,79,0.12)",
+            }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, color: theme.forest, marginBottom: 16 }}>
+                "I used 3 PTO days to stand at Oeschinensee at sunrise. Worth every second."
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: theme.green, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👨‍👧</div>
+                <div>
+                  <div style={{ fontWeight: 600, color: theme.forest }}>Cameron Skye</div>
+                  <div style={{ fontSize: 13, color: theme.muted }}>@_skyetravels</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="section-tag">👋 About</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(28px, 3vw, 40px)", fontWeight: 700, color: theme.forest, margin: "12px 0 20px", lineHeight: 1.2 }}>
+              A 9-5 dad who refuses to stop travelling
+            </h2>
+            <p style={{ color: theme.muted, fontSize: 16, lineHeight: 1.75, marginBottom: 16 }}>
+              I get 10–14 PTO days a year like everyone else. But I've figured out how to stack them around holidays and weekends to turn 10 days into 20+ days in Europe.
+            </p>
+            <p style={{ color: theme.muted, fontSize: 16, lineHeight: 1.75, marginBottom: 32 }}>
+              Switzerland, Italy, France, Germany — all done on regular vacation days. This site is everything I've learned, free.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <a href="https://instagram.com/_skyetravels" target="_blank" rel="noopener noreferrer"><button className="btn-primary">Follow on IG 📸</button></a>
+              <button className="btn-outline" onClick={() => setPage("planner")}>Plan a trip</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer style={{ background: theme.forest, color: "rgba(255,255,255,0.7)", padding: "48px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 28, marginBottom: 12 }}>🌍</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "white", fontWeight: 700, marginBottom: 8 }}>Cameron Skye Travels</div>
+        <div style={{ fontSize: 14, marginBottom: 24 }}>9-5 dad · Smart traveller · Free guides</div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 24, fontSize: 14, marginBottom: 24 }}>
+          <a href="https://instagram.com/_skyetravels" target="_blank" rel="noopener noreferrer" style={{ color: "rgba(255,255,255,0.7)" }}>Instagram</a>
+          <a href="https://linktr.ee/Cameronskye_" target="_blank" rel="noopener noreferrer" style={{ color: "rgba(255,255,255,0.7)" }}>Linktree</a>
+          <button onClick={() => {}} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 14 }}>Trip Planner</button>
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.5 }}>© 2025 cameronskyetravels.com · Some links are affiliate links</div>
+      </footer>
+    </div>
+  );
+}
+
+// ─── PLANNER PAGE ─────────────────────────────────────────────────────────────
+function PlannerPage() {
   const [form, setForm] = useState({ destination: "", duration: "", style: "", budget: "" });
+  const [step, setStep] = useState("form");
   const [loading, setLoading] = useState(false);
   const [streamedText, setStreamedText] = useState("");
-  const [itinerary, setItinerary] = useState("");
   const resultRef = useRef(null);
-
-  useEffect(() => {
-    if (streamedText && resultRef.current) {
-      resultRef.current.scrollTop = resultRef.current.scrollHeight;
-    }
-  }, [streamedText]);
 
   const allSelected = form.destination && form.duration && form.style && form.budget;
 
-  async function generateItinerary() {
+  useEffect(() => {
+    if (streamedText && resultRef.current) resultRef.current.scrollTop = resultRef.current.scrollHeight;
+  }, [streamedText]);
+
+  async function generate() {
     setLoading(true);
     setStep("result");
     setStreamedText("");
 
-    const prompt = `You are Skye, a cinematic European travel expert and 9-5 dad who travels smart. Create a detailed, inspiring travel itinerary.
+    const prompt = `You are Skye, a European travel expert and 9-5 dad who travels smart. Create a detailed, inspiring travel itinerary.
 
 Destination: ${form.destination}
 Duration: ${form.duration}
@@ -48,213 +476,147 @@ Budget: ${form.budget}
 
 Format your response with:
 1. A catchy title for this trip
-2. Day-by-day itinerary with morning/afternoon/evening activities
+2. Day-by-day itinerary with morning/afternoon/evening
 3. 3 must-eat food recommendations
-4. 2 cinematic photography spots
+4. 2 best photography spots
 5. 1 insider tip most tourists miss
 6. Estimated daily budget breakdown
-7. Best time to use PTO days for this trip
+7. Best PTO window to book this trip
 
-Write in an inspiring, personal tone like a friend who has actually been there. Use emojis sparingly. Keep it practical but beautiful.`;
+Write like a friend who has actually been there. Inspiring but practical.`;
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1000,
           messages: [{ role: "user", content: prompt }],
         }),
       });
-
-      const data = await response.json();
+      const data = await res.json();
       const text = data.content?.map(b => b.text || "").join("") || "Something went wrong. Please try again.";
-
       let i = 0;
-      const interval = setInterval(() => {
-        if (i < text.length) {
-          setStreamedText(prev => prev + text[i]);
-          i++;
-        } else {
-          clearInterval(interval);
-          setItinerary(text);
-          setLoading(false);
-        }
+      const iv = setInterval(() => {
+        if (i < text.length) { setStreamedText(p => p + text[i]); i++; }
+        else { clearInterval(iv); setLoading(false); }
       }, 8);
-    } catch (e) {
+    } catch {
       setStreamedText("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
 
-  const Chip = ({ field, value }) => {
-    const selected = form[field] === value;
-    return (
-      <button
-        onClick={() => setForm(f => ({ ...f, [field]: value }))}
-        style={{
-          padding: "10px 18px",
-          borderRadius: "100px",
-          border: selected ? "1.5px solid #c9a96e" : "1.5px solid rgba(255,255,255,0.12)",
-          background: selected ? "rgba(201,169,110,0.15)" : "rgba(255,255,255,0.04)",
-          color: selected ? "#f0d9a0" : "rgba(255,255,255,0.55)",
-          fontSize: "13px",
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontWeight: selected ? "600" : "400",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-          letterSpacing: "0.02em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {value}
-      </button>
-    );
-  };
-
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#0a0a0f",
-      fontFamily: "'Cormorant Garamond', Georgia, serif",
-      color: "#f5f0e8",
-      position: "relative",
-      overflow: "hidden",
-    }}>
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 0,
-        background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,169,110,0.08) 0%, transparent 70%)",
-        pointerEvents: "none",
-      }} />
+    <div style={{ minHeight: "100vh", background: `linear-gradient(160deg, #e8f5ee, #fefae0)`, paddingTop: 100 }}>
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "40px 24px 80px" }}>
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: "560px", margin: "0 auto", padding: "0 20px" }}>
-
-        {step === "home" && (
-          <div style={{ paddingTop: "80px", paddingBottom: "60px" }}>
-            <div style={{ textAlign: "center", marginBottom: "52px" }}>
-              <div style={{ fontSize: "12px", letterSpacing: "0.25em", color: "#c9a96e", marginBottom: "20px", textTransform: "uppercase" }}>
-                ✦ cameronskyetravels.com
-              </div>
-              <h1 style={{ fontSize: "clamp(40px, 8vw, 60px)", fontWeight: "300", lineHeight: "1.05", margin: "0 0 16px", letterSpacing: "-0.02em" }}>
-                Your personal<br />
-                <span style={gradientText}>Europe itinerary</span>
-              </h1>
-              <p style={{ fontSize: "16px", color: "rgba(255,255,255,0.45)", fontWeight: "300", lineHeight: "1.6", margin: "0" }}>
-                Built by a 9-5 dad who travels smart.<br />Tell me where you want to go.
-              </p>
+        {step === "form" && (
+          <>
+            <div style={{ textAlign: "center", marginBottom: 48 }}>
+              <div style={{ fontSize: 52, marginBottom: 16, animation: "float 5s ease-in-out infinite" }}>🗺️</div>
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 700, color: theme.forest, marginBottom: 12 }}>Plan your Europe trip</h1>
+              <p style={{ color: theme.muted, fontSize: 17, lineHeight: 1.6 }}>Built by a 9-5 dad who travels smart. Get a free day-by-day itinerary in seconds.</p>
             </div>
 
-            <Section label="Where to?">
-              <ChipRow>{DESTINATIONS.map(d => <Chip key={d} field="destination" value={d} />)}</ChipRow>
-            </Section>
-            <Section label="How long?">
-              <ChipRow>{DURATIONS.map(d => <Chip key={d} field="duration" value={d} />)}</ChipRow>
-            </Section>
-            <Section label="Your vibe?">
-              <ChipRow>{STYLES.map(s => <Chip key={s} field="style" value={s} />)}</ChipRow>
-            </Section>
-            <Section label="Budget?">
-              <ChipRow>{BUDGETS.map(b => <Chip key={b} field="budget" value={b} />)}</ChipRow>
-            </Section>
+            {[
+              { label: "Where to?", field: "destination", options: DESTS },
+              { label: "How long?", field: "duration", options: DURS },
+              { label: "Your travel style?", field: "style", options: STYLES },
+              { label: "Budget per day?", field: "budget", options: BUDGETS },
+            ].map(({ label, field, options }) => (
+              <div key={field} style={{ marginBottom: 32 }}>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: theme.forest, marginBottom: 12 }}>{label}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  {options.map(opt => (
+                    <button key={opt} className={`planner-chip ${form[field] === opt ? "selected" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, [field]: opt }))}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
 
-            <button
-              onClick={generateItinerary}
-              disabled={!allSelected}
-              style={{
-                width: "100%", padding: "18px", marginTop: "8px", borderRadius: "14px", border: "none",
-                background: allSelected ? "linear-gradient(135deg, #c9a96e, #a07840)" : "rgba(255,255,255,0.06)",
-                color: allSelected ? "#0a0a0f" : "rgba(255,255,255,0.2)",
-                fontSize: "16px", fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontWeight: "600", letterSpacing: "0.08em", textTransform: "uppercase",
-                cursor: allSelected ? "pointer" : "not-allowed", transition: "all 0.3s ease",
-              }}
-            >
-              Plan My Trip →
+            <button className="btn-primary" disabled={!allSelected} onClick={generate}
+              style={{ width: "100%", padding: 20, fontSize: 17, opacity: allSelected ? 1 : 0.4, borderRadius: 16 }}>
+              {allSelected ? "Generate My Itinerary ✨" : "Select all options above"}
             </button>
-            {!allSelected && (
-              <p style={{ textAlign: "center", fontSize: "13px", color: "rgba(255,255,255,0.25)", marginTop: "12px" }}>
-                Select all options above to continue
-              </p>
-            )}
-          </div>
+          </>
         )}
 
         {step === "result" && (
-          <div style={{ paddingTop: "60px", paddingBottom: "80px" }}>
-            <div style={{ marginBottom: "32px" }}>
-              <div style={{ fontSize: "12px", letterSpacing: "0.25em", color: "#c9a96e", marginBottom: "12px", textTransform: "uppercase" }}>✦ Your itinerary</div>
-              <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.35)", display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                <span>{form.destination}</span><span>·</span><span>{form.duration}</span><span>·</span><span>{form.style}</span>
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32 }}>
+              <button onClick={() => { setStep("form"); setStreamedText(""); setForm({ destination: "", duration: "", style: "", budget: "" }); }}
+                style={{ background: "white", border: "1px solid #b7e4c7", borderRadius: 50, padding: "8px 16px", cursor: "pointer", color: theme.green, fontWeight: 500, fontSize: 14 }}>← Back</button>
+              <div style={{ fontSize: 14, color: theme.muted }}>
+                {form.destination} · {form.duration} · {form.style}
               </div>
             </div>
 
             <div ref={resultRef} style={{
-              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(201,169,110,0.15)",
-              borderRadius: "16px", padding: "28px 24px", marginBottom: "32px",
-              lineHeight: "1.8", fontSize: "15px", color: "rgba(255,255,255,0.8)",
-              whiteSpace: "pre-wrap", minHeight: "200px", maxHeight: "60vh", overflowY: "auto",
+              background: "white", borderRadius: 24, padding: "32px 28px",
+              boxShadow: "0 8px 40px rgba(26,58,42,0.1)",
+              border: "1px solid #e8f5ee",
+              lineHeight: 1.8, fontSize: 15.5, color: theme.text,
+              whiteSpace: "pre-wrap", minHeight: 300, maxHeight: "65vh", overflowY: "auto",
+              marginBottom: 28,
             }}>
               {streamedText}
-              {loading && <span style={{ opacity: 0.4 }}>▌</span>}
+              {loading && <span style={{ animation: "pulse 1s infinite", color: theme.green }}>▌</span>}
             </div>
 
             {!loading && streamedText && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "32px" }}>
-                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Book your trip</p>
-                {[
-                  { label: "🏨 Find hotels on Booking.com", url: AFFILIATE_LINKS.booking },
-                  { label: "🎭 Book tours on GetYourGuide", url: AFFILIATE_LINKS.getyourguide },
-                  { label: "🗺️ Day trips on Viator", url: AFFILIATE_LINKS.viator },
-                ].map(({ label, url }) => (
-                  <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{
-                    display: "block", padding: "14px 20px", borderRadius: "12px",
-                    border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)",
-                    color: "rgba(255,255,255,0.7)", textDecoration: "none", fontSize: "14px",
-                    fontFamily: "'Cormorant Garamond', Georgia, serif", transition: "all 0.2s ease",
-                  }}>
-                    {label}
-                  </a>
-                ))}
-              </div>
+              <>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: theme.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Book your trip</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {[
+                      { label: "🏨 Find hotels on Booking.com", url: "https://www.booking.com" },
+                      { label: "🎭 Book tours on GetYourGuide", url: "https://www.getyourguide.com" },
+                      { label: "🗺️ Day trips on Viator", url: "https://www.viator.com" },
+                      { label: "📱 Travel eSIM — no roaming fees", url: "https://www.airalo.com" },
+                    ].map(({ label, url }) => (
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{
+                        display: "block", padding: "14px 20px", borderRadius: 14,
+                        border: "1.5px solid #e8f5ee", background: "white",
+                        color: theme.forest, fontSize: 15, fontWeight: 500,
+                        transition: "all 0.2s",
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#74c69d"; e.currentTarget.style.background = "#f0faf4"; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "#e8f5ee"; e.currentTarget.style.background = "white"; }}
+                      >
+                        {label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+                <button className="btn-primary" style={{ width: "100%", padding: 18, fontSize: 16, borderRadius: 16 }}
+                  onClick={() => { setStep("form"); setStreamedText(""); setForm({ destination: "", duration: "", style: "", budget: "" }); }}>
+                  Plan Another Trip ✨
+                </button>
+              </>
             )}
-
-            {!loading && (
-              <button
-                onClick={() => { setStep("home"); setForm({ destination: "", duration: "", style: "", budget: "" }); setStreamedText(""); }}
-                style={{
-                  width: "100%", padding: "16px", borderRadius: "12px",
-                  border: "1.5px solid rgba(201,169,110,0.3)", background: "transparent",
-                  color: "#c9a96e", fontSize: "14px", fontFamily: "'Cormorant Garamond', Georgia, serif",
-                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                }}
-              >
-                Plan Another Trip
-              </button>
-            )}
-          </div>
+          </>
         )}
       </div>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(201,169,110,0.3); border-radius: 2px; }
-      `}</style>
     </div>
   );
 }
 
-function Section({ label, children }) {
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [page, setPage] = useState("home");
+
+  useEffect(() => { window.scrollTo(0, 0); }, [page]);
+
   return (
-    <div style={{ marginBottom: "28px" }}>
-      <p style={{ fontSize: "12px", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", margin: "0 0 12px" }}>{label}</p>
-      {children}
-    </div>
+    <>
+      <style>{css}</style>
+      <Nav page={page} setPage={setPage} />
+      {page === "home" ? <HomePage setPage={setPage} /> : <PlannerPage />}
+    </>
   );
-}
-
-function ChipRow({ children }) {
-  return <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>{children}</div>;
 }
