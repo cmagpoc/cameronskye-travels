@@ -1,6 +1,18 @@
+const headers = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
+
 export async function handler(event) {
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "" };
+  }
+
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method not allowed" };
+    return { statusCode: 405, headers, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
   try {
@@ -21,15 +33,8 @@ export async function handler(event) {
     });
 
     const data = await response.json();
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify(data) };
   } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Something went wrong" }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Something went wrong" }) };
   }
 }
