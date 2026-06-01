@@ -492,14 +492,19 @@ Write like a friend who has actually been there. Inspiring but practical.`;
         body: JSON.stringify({ prompt }),
       });
       const data = await res.json();
-      const text = data.content?.map(b => b.text || "").join("") || "Something went wrong. Please try again.";
+      if (data.error) {
+        setStreamedText("Error: " + data.error);
+        setLoading(false);
+        return;
+      }
+      const text = data.content?.map(b => b.text || "").join("") || "No response received. Please try again.";
       let i = 0;
       const iv = setInterval(() => {
         if (i < text.length) { setStreamedText(p => p + text[i]); i++; }
         else { clearInterval(iv); setLoading(false); }
       }, 8);
-    } catch {
-      setStreamedText("Something went wrong. Please try again.");
+    } catch (err) {
+      setStreamedText("Error: " + (err.message || "Something went wrong. Please try again."));
       setLoading(false);
     }
   }
